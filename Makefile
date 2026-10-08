@@ -154,6 +154,7 @@ UPROGS=\
 	$U/_Primes\
 	$U/_find\
 	$U/_xargs\
+	$U/_trace\
 
 
 ifeq ($(LAB),syscall)
