@@ -1,4 +1,9 @@
 // Saved registers for kernel context switches.
+#include "types.h"
+#include "param.h"
+#include "spinlock.h"
+#include "memlayout.h"
+
 struct context {
   uint64 ra;
   uint64 sp;

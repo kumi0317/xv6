@@ -37,18 +37,26 @@ sys_wait(void)
     return -1;
   return wait(p);
 }
-
+//用来调整进程堆的大小(n>0扩大，n<0缩小)
 uint64
 sys_sbrk(void)
 {
   int addr;
   int n;
-
-  if(argint(0, &n) < 0)
+  if (argint(0, &n) < 0)
     return -1;
-  addr = myproc()->sz;
-  myproc()->sz += n;
-  
+  struct proc *p = myproc();
+  addr = p->sz;
+  // 如果新va大于极限va或者把堆缩到负数了则不给调整大小返回原值
+  if (addr + n >= MAXVA || addr + n <= 0)
+    return addr;
+  //直接更改sz的大小，如果是增加的话，页面之后再分配
+  p->sz = addr + n;
+  // if(growproc(n) < 0)
+  //   return -1;
+  //要缩堆了，调用uvmdealloc回收一下
+  if (n < 0)
+    uvmdealloc(p->pagetable, addr, p->sz);
   return addr;
 }
 

@@ -5,6 +5,7 @@
 #include "riscv.h"
 #include "defs.h"
 #include "fs.h"
+#include "proc.h"
 
 /*
  * the kernel's page table.
@@ -96,15 +97,31 @@ walkaddr(pagetable_t pagetable, uint64 va)
 {
   pte_t *pte;
   uint64 pa;
-
-  if(va >= MAXVA)
+  if (va >= MAXVA)
     return 0;
 
   pte = walk(pagetable, va, 0);
-  if(pte == 0)
-    return 0;
-  if((*pte & PTE_V) == 0)
-    return 0;
+  // if(pte == 0)
+  //   return 0;
+  // if((*pte & PTE_V) == 0)
+  //   return 0;
+  if (pte == 0 || (*pte & PTE_V) == 0)
+  {
+    // pa = lazyalloc(va);
+    struct proc *p = myproc();
+    if (va >= p->sz || va < PGROUNDUP(p->trapframe->sp))
+      return 0;
+    pa = (uint64)kalloc();
+    if (pa == 0)
+      return 0;
+    memset((void *)pa, 0, PGSIZE);
+    if (mappages(p->pagetable, PGROUNDDOWN(va), PGSIZE, pa, PTE_W | PTE_R | PTE_U | PTE_X) != 0)
+    {
+      kfree((void *)pa);
+      return 0;
+    }
+    return pa;
+  }
   if((*pte & PTE_U) == 0)
     return 0;
   pa = PTE2PA(*pte);
@@ -180,9 +197,10 @@ uvmunmap(pagetable_t pagetable, uint64 va, uint64 npages, int do_free)
     panic("uvmunmap: not aligned");
 
   for(a = va; a < va + npages*PGSIZE; a += PGSIZE){
+    //没找到虚拟页表的页表项或者有页表项但无效都跳过
     if((pte = walk(pagetable, a, 0)) == 0)
-      panic("uvmunmap: walk");
-    if((*pte & PTE_V) == 0)
+      continue;
+    if ((*pte & PTE_V) == 0)
       //panic("uvmunmap: not mapped");
       continue;
     if (PTE_FLAGS(*pte) == PTE_V)
@@ -316,9 +334,11 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
 
   for(i = 0; i < sz; i += PGSIZE){
     if((pte = walk(old, i, 0)) == 0)
-      panic("uvmcopy: pte should exist");
-    if((*pte & PTE_V) == 0)
-      panic("uvmcopy: page not present");
+      continue;
+    if ((*pte & PTE_V) == 0){
+      continue;
+    }
+
     pa = PTE2PA(*pte);
     flags = PTE_FLAGS(*pte);
     if((mem = kalloc()) == 0)
@@ -441,3 +461,31 @@ copyinstr(pagetable_t pagetable, char *dst, uint64 srcva, uint64 max)
     return -1;
   }
 }
+
+// int lazyvalidate(struct proc *p, uint64 va){
+//   //位置大于堆顶小于栈顶的不行
+//   if(va>p->sz||va<p->trapframe->sp){
+//     return -1;
+//   }
+//   //walkaddr为1表示已经有物理页映射了
+//   if(walkaddr(p->pagetable,va)!=0){
+//     return 0;
+//   }
+//   va = PGROUNDDOWN(va);
+//   uint64 pa = (uint64)kalloc();
+//   if(pa==0){
+//     return -1;
+//   }
+//   memset((void *)pa, 0, PGSIZE);
+//   if(mappages(p->pagetable,va,PGSIZE,pa,PTE_W|PTE_X|PTE_R|PTE_U)!=0){
+//     kfree((void *)pa);
+//     return - 1;
+//   }
+//   if (umappages(p->pagetable, va, PGSIZE, pa, PTE_W | PTE_X | PTE_R) != 0)
+//   {
+//     kfree((void *)pa);
+//     uvmunmap(p->pagetable, va, 1, 0);
+//     return -1;
+//   }
+//   return 0;
+// }
