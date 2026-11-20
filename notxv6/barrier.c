@@ -26,7 +26,22 @@ static void
 barrier()
 {
   // YOUR CODE HERE
-  //
+  pthread_mutex_lock(&bstate.barrier_mutex);
+
+  if (++bstate.nthread != nthread)
+  {
+    // 自己不是最后一个到达的线程 → 睡眠等待
+    pthread_cond_wait(&bstate.barrier_cond, &bstate.barrier_mutex);
+  }
+  else
+  {
+    // 自己是最后一个到达的线程
+    bstate.nthread = 0; // 重置计数，为下一轮做准备
+    bstate.round++;
+    pthread_cond_broadcast(&bstate.barrier_cond); // 唤醒所有等待线程
+  }
+
+  pthread_mutex_unlock(&bstate.barrier_mutex);
   // Block until all threads have called barrier() and
   // then increment bstate.round.
   //
