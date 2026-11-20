@@ -1,7 +1,9 @@
 #include "types.h"
-#include "spinlock.h"
 #include "param.h"
+#include "spinlock.h"
 #include "memlayout.h"
+#include "riscv.h"
+#include "defs.h"
 
 // 每个物理页：引用计数 + 每页一把自旋锁
 struct {
