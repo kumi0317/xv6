@@ -6,7 +6,7 @@
 #include <sys/time.h>
 
 #define NBUCKET 7
-pthread_mutex_t locks[NBUCKET];
+pthread_mutex_t locks[NBUCKET];//定义互斥数组
 #define NKEYS 100000
 
 struct entry {
@@ -52,9 +52,9 @@ void put(int key, int value)
     e->value = value;
   } else {
     // the new is new.
-    pthread_mutex_lock(&locks[i]);
+    pthread_mutex_lock(&locks[i]);//加锁
     insert(key, value, &table[i], table[i]);
-    pthread_mutex_unlock(&locks[i]);
+    pthread_mutex_unlock(&locks[i]);//释放
   }
 }
 
@@ -117,7 +117,7 @@ main(int argc, char *argv[])
   for (int i = 0; i < NKEYS; i++) {
     keys[i] = random();
   }
-
+//初始化锁
   for (int i = 0; i < NBUCKET; ++i)
   {
     pthread_mutex_init(&locks[i], NULL);
