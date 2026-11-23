@@ -386,7 +386,7 @@ bmap(struct inode *ip, uint bn)
     return addr;
   }
   bn -= NDIRECT;
-
+//1.简单来说是通过bn，也就是文件内逻辑块号来找磁盘上的块号，这是一级索引，如果如果bn是第一次记录，那得申请一下真实的磁盘块，先申请一块放磁盘块号，但是cpu不能直接读写磁盘，然后把这块内容写到bp缓冲区读，相当于bp是磁盘块的一个副本，然后在副本上申请记录的块地址，在log_writer的作用下会同步到磁盘
   if(bn < NINDIRECT){
     // Load indirect block, allocating if necessary.
     if((addr = ip->addrs[NDIRECT]) == 0)
@@ -400,7 +400,7 @@ bmap(struct inode *ip, uint bn)
     brelse(bp);
     return addr;
   }
-
+//这个是二级的，其实步骤也差不多，先去磁盘生成一张二级索引表，然后把表的副本写到bp，bn/NINDIRECT是二级索引，用二级索引申请一个一级索引表，然后就和前面的一级索引的情况一样了
   bn -= NINDIRECT;
   if (bn < NDOUBLYINDIRECT)
   {
@@ -435,6 +435,7 @@ bmap(struct inode *ip, uint bn)
 
 // Truncate inode (discard contents).
 // Caller must hold ip->lock.
+//2.回收一整个文件磁盘块用的，也是用缓存区当副本复制磁盘索引的内容，根据索引去找到实际写东西的块的地址，然后交给bfree释放掉
 void
 itrunc(struct inode *ip)
 {

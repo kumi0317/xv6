@@ -282,16 +282,17 @@ create(char *path, short type, short major, short minor)
 
   return ip;
 }
+//这个函数是用来解析软链接的，找到返回找到的第一个不是软链接而是目标文件同时防止了循环链接
 static struct inode *follow_symlink(struct inode *ip)
 {
-  uint inums[NSYMLINK];
+  uint inums[NSYMLINK];//记录链上的软链接inode编号，用于判断是否成环
   int i, j;
   char target[MAXPATH];
 
   for (i = 0; i < NSYMLINK; ++i)
   {
     inums[i] = ip->inum;
-    // read the target path from symlink file
+    // 软链接ip里读出来的偏移量为0的内容存到target
     if (readi(ip, 0, (uint64)target, 0, MAXPATH) <= 0)
     {
       iunlockput(ip);
@@ -300,12 +301,13 @@ static struct inode *follow_symlink(struct inode *ip)
     }
     iunlockput(ip);
 
-    // get the inode of target path
+    // target里的文件的inode
     if ((ip = namei(target)) == 0)
     {
       printf("open_symlink: path \"%s\" is not exist\n", target);
       return 0;
     }
+    //找一下这个inode号出现过没有
     for (j = 0; j <= i; ++j)
     {
       if (ip->inum == inums[j])
@@ -315,6 +317,7 @@ static struct inode *follow_symlink(struct inode *ip)
       }
     }
     ilock(ip);
+    //如果不是软链接，找到并返回这个inode
     if (ip->type != T_SYMLINK)
     {
       return ip;
@@ -363,6 +366,7 @@ sys_open(void)
     end_op();
     return -1;
   }
+  //在当前inode是软链接且不是nofollow的情况下跟随寻找目标地址
   if (ip->type == T_SYMLINK && (omode & O_NOFOLLOW) == 0)
   {
     if ((ip = follow_symlink(ip)) == 0)
@@ -538,23 +542,23 @@ sys_pipe(void)
 
 uint64 sys_symlink(void)
 {
-  char target[MAXPATH], path[MAXPATH];
+  char target[MAXPATH], path[MAXPATH];//target是目标文件的路径，path是软链接的文件名字
   struct inode *ip;
-  int n;
-
+  int n;//target的字符长度
+//将用户态的参数传到target和path
   if ((n = argstr(0, target, MAXPATH)) < 0 || argstr(1, path, MAXPATH) < 0)
   {
     return -1;
   }
-
+//xv6日志事物开始，保证本次文件操作原子性
   begin_op();
-  // create the symlink's inode
+  // 创建软链接文件的inode
   if ((ip = create(path, T_SYMLINK, 0, 0)) == 0)
   {
     end_op();
     return -1;
   }
-  // write the target path to the inode
+  // 写入target字符串到inode的数据区
   if (writei(ip, 0, (uint64)target, 0, n) != n)
   {
     iunlockput(ip);
